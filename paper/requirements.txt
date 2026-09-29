@@ -1,0 +1,7 @@
+# 模拟盘（GitHub Actions）只需要这些，版本固定为测试通过的组合；研究实验的完整依赖见根目录 requirements.txt
+pyqlib==0.9.7
+lightgbm==4.7.0
+pandas==3.0.6
+numpy==2.4.6
+pyarrow==25.0.1
+baostock==0.9.4

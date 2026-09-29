@@ -1,0 +1,624 @@
+{
+ "strategy": "C_top50",
+ "init_cash": 70000.0,
+ "start_date": "2026-09-29",
+ "last_date": "2026-09-29",
+ "cash": 70000.0,
+ "etf_value": 0.0,
+ "positions": {},
+ "pending": {
+  "signal_date": "2026-09-29",
+  "kind": "dropout",
+  "expo_next": 1.0,
+  "expo_today": 1.0,
+  "dd": -0.007134246916465914,
+  "sell": [],
+  "buy": [
+   {
+    "inst": "SH688146",
+    "shares": 0
+   },
+   {
+    "inst": "SH605376",
+    "shares": 0
+   },
+   {
+    "inst": "SZ002484",
+    "shares": 0
+   },
+   {
+    "inst": "SH603103",
+    "shares": 0
+   },
+   {
+    "inst": "SZ300602",
+    "shares": 0
+   },
+   {
+    "inst": "SZ002192",
+    "shares": 0
+   },
+   {
+    "inst": "SZ000688",
+    "shares": 0
+   },
+   {
+    "inst": "SZ300438",
+    "shares": 0
+   },
+   {
+    "inst": "SH688141",
+    "shares": 0
+   },
+   {
+    "inst": "SZ002960",
+    "shares": 100
+   },
+   {
+    "inst": "SH603876",
+    "shares": 0
+   },
+   {
+    "inst": "SZ300045",
+    "shares": 100
+   },
+   {
+    "inst": "SZ301267",
+    "shares": 0
+   },
+   {
+    "inst": "SH600167",
+    "shares": 200
+   },
+   {
+    "inst": "SZ002351",
+    "shares": 100
+   },
+   {
+    "inst": "SH600649",
+    "shares": 300
+   },
+   {
+    "inst": "SZ300870",
+    "shares": 0
+   },
+   {
+    "inst": "SZ301268",
+    "shares": 100
+   },
+   {
+    "inst": "SH600116",
+    "shares": 200
+   },
+   {
+    "inst": "SZ300080",
+    "shares": 300
+   },
+   {
+    "inst": "SZ300035",
+    "shares": 100
+   },
+   {
+    "inst": "SZ300298",
+    "shares": 0
+   },
+   {
+    "inst": "SH603025",
+    "shares": 100
+   },
+   {
+    "inst": "SH688567",
+    "shares": 0
+   },
+   {
+    "inst": "SZ002545",
+    "shares": 0
+   },
+   {
+    "inst": "SH688639",
+    "shares": 0
+   },
+   {
+    "inst": "SH688300",
+    "shares": 0
+   },
+   {
+    "inst": "SH600094",
+    "shares": 300
+   },
+   {
+    "inst": "SH600662",
+    "shares": 300
+   },
+   {
+    "inst": "SZ300680",
+    "shares": 0
+   },
+   {
+    "inst": "SZ000913",
+    "shares": 100
+   },
+   {
+    "inst": "SH688362",
+    "shares": 0
+   },
+   {
+    "inst": "SH600248",
+    "shares": 400
+   },
+   {
+    "inst": "SZ002127",
+    "shares": 400
+   },
+   {
+    "inst": "SZ000719",
+    "shares": 100
+   },
+   {
+    "inst": "SH688206",
+    "shares": 0
+   },
+   {
+    "inst": "SZ000927",
+    "shares": 500
+   },
+   {
+    "inst": "SZ002408",
+    "shares": 200
+   },
+   {
+    "inst": "SZ300134",
+    "shares": 100
+   },
+   {
+    "inst": "SH688433",
+    "shares": 0
+   },
+   {
+    "inst": "SH601921",
+    "shares": 100
+   },
+   {
+    "inst": "SZ301602",
+    "shares": 0
+   },
+   {
+    "inst": "SZ001914",
+    "shares": 100
+   },
+   {
+    "inst": "SZ300341",
+    "shares": 100
+   },
+   {
+    "inst": "SZ301622",
+    "shares": 0
+   },
+   {
+    "inst": "SH688779",
+    "shares": 0
+   },
+   {
+    "inst": "SH600877",
+    "shares": 100
+   },
+   {
+    "inst": "SH603166",
+    "shares": 100
+   },
+   {
+    "inst": "SZ001236",
+    "shares": 100
+   },
+   {
+    "inst": "SZ002276",
+    "shares": 100
+   }
+  ],
+  "backup": [
+   {
+    "inst": "SH603360",
+    "shares": 100
+   },
+   {
+    "inst": "SH600633",
+    "shares": 100
+   },
+   {
+    "inst": "SH688031",
+    "shares": 0
+   },
+   {
+    "inst": "SH603915",
+    "shares": 100
+   },
+   {
+    "inst": "SH688586",
+    "shares": 0
+   },
+   {
+    "inst": "SH688372",
+    "shares": 0
+   },
+   {
+    "inst": "SZ002690",
+    "shares": 0
+   },
+   {
+    "inst": "SZ000550",
+    "shares": 0
+   },
+   {
+    "inst": "SZ300127",
+    "shares": 0
+   },
+   {
+    "inst": "SH600315",
+    "shares": 0
+   },
+   {
+    "inst": "SZ300337",
+    "shares": 100
+   },
+   {
+    "inst": "SH603950",
+    "shares": 0
+   },
+   {
+    "inst": "SZ301565",
+    "shares": 0
+   },
+   {
+    "inst": "SZ300768",
+    "shares": 0
+   },
+   {
+    "inst": "SZ300633",
+    "shares": 0
+   },
+   {
+    "inst": "SH688522",
+    "shares": 0
+   },
+   {
+    "inst": "SZ000791",
+    "shares": 100
+   },
+   {
+    "inst": "SH600268",
+    "shares": 100
+   },
+   {
+    "inst": "SH600728",
+    "shares": 200
+   },
+   {
+    "inst": "SH600718",
+    "shares": 100
+   },
+   {
+    "inst": "SH601908",
+    "shares": 400
+   },
+   {
+    "inst": "SZ300188",
+    "shares": 100
+   },
+   {
+    "inst": "SH688449",
+    "shares": 0
+   },
+   {
+    "inst": "SH688165",
+    "shares": 0
+   },
+   {
+    "inst": "SH600055",
+    "shares": 100
+   },
+   {
+    "inst": "SZ300036",
+    "shares": 100
+   },
+   {
+    "inst": "SH603927",
+    "shares": 0
+   },
+   {
+    "inst": "SZ002101",
+    "shares": 100
+   },
+   {
+    "inst": "SZ002941",
+    "shares": 100
+   },
+   {
+    "inst": "SH600373",
+    "shares": 100
+   },
+   {
+    "inst": "SH603219",
+    "shares": 100
+   },
+   {
+    "inst": "SZ300525",
+    "shares": 100
+   },
+   {
+    "inst": "SH600478",
+    "shares": 200
+   },
+   {
+    "inst": "SZ002373",
+    "shares": 100
+   },
+   {
+    "inst": "SZ000837",
+    "shares": 100
+   },
+   {
+    "inst": "SH688523",
+    "shares": 0
+   },
+   {
+    "inst": "SZ300682",
+    "shares": 100
+   },
+   {
+    "inst": "SZ300809",
+    "shares": 0
+   },
+   {
+    "inst": "SH600529",
+    "shares": 0
+   },
+   {
+    "inst": "SH603100",
+    "shares": 0
+   },
+   {
+    "inst": "SH600409",
+    "shares": 200
+   },
+   {
+    "inst": "SH688668",
+    "shares": 0
+   },
+   {
+    "inst": "SZ002250",
+    "shares": 0
+   },
+   {
+    "inst": "SH600623",
+    "shares": 100
+   },
+   {
+    "inst": "SH603919",
+    "shares": 0
+   },
+   {
+    "inst": "SZ002544",
+    "shares": 0
+   },
+   {
+    "inst": "SZ300872",
+    "shares": 0
+   },
+   {
+    "inst": "SH601326",
+    "shares": 300
+   },
+   {
+    "inst": "SZ000848",
+    "shares": 100
+   },
+   {
+    "inst": "SH603227",
+    "shares": 100
+   },
+   {
+    "inst": "SZ002063",
+    "shares": 200
+   },
+   {
+    "inst": "SZ002073",
+    "shares": 200
+   },
+   {
+    "inst": "SH600064",
+    "shares": 100
+   },
+   {
+    "inst": "SH688289",
+    "shares": 0
+   },
+   {
+    "inst": "SH600151",
+    "shares": 100
+   },
+   {
+    "inst": "SH603698",
+    "shares": 0
+   },
+   {
+    "inst": "SZ300779",
+    "shares": 0
+   },
+   {
+    "inst": "SH688252",
+    "shares": 0
+   },
+   {
+    "inst": "SH688006",
+    "shares": 0
+   },
+   {
+    "inst": "SZ301658",
+    "shares": 0
+   },
+   {
+    "inst": "SZ002539",
+    "shares": 100
+   },
+   {
+    "inst": "SZ301029",
+    "shares": 0
+   },
+   {
+    "inst": "SH688107",
+    "shares": 0
+   },
+   {
+    "inst": "SH600353",
+    "shares": 0
+   },
+   {
+    "inst": "SH600037",
+    "shares": 100
+   },
+   {
+    "inst": "SH600771",
+    "shares": 0
+   },
+   {
+    "inst": "SH600827",
+    "shares": 100
+   },
+   {
+    "inst": "SH603093",
+    "shares": 0
+   },
+   {
+    "inst": "SZ002163",
+    "shares": 100
+   },
+   {
+    "inst": "SZ300353",
+    "shares": 0
+   },
+   {
+    "inst": "SH600528",
+    "shares": 100
+   },
+   {
+    "inst": "SH603613",
+    "shares": 0
+   },
+   {
+    "inst": "SH600773",
+    "shares": 100
+   },
+   {
+    "inst": "SZ002511",
+    "shares": 100
+   },
+   {
+    "inst": "SH600996",
+    "shares": 100
+   },
+   {
+    "inst": "SZ300482",
+    "shares": 0
+   },
+   {
+    "inst": "SZ300861",
+    "shares": 0
+   },
+   {
+    "inst": "SH688443",
+    "shares": 0
+   },
+   {
+    "inst": "SZ000758",
+    "shares": 200
+   },
+   {
+    "inst": "SH603883",
+    "shares": 100
+   },
+   {
+    "inst": "SZ300047",
+    "shares": 100
+   },
+   {
+    "inst": "SZ301175",
+    "shares": 200
+   },
+   {
+    "inst": "SZ300660",
+    "shares": 0
+   },
+   {
+    "inst": "SZ003010",
+    "shares": 0
+   },
+   {
+    "inst": "SZ001267",
+    "shares": 0
+   },
+   {
+    "inst": "SZ300031",
+    "shares": 0
+   },
+   {
+    "inst": "SZ002096",
+    "shares": 100
+   },
+   {
+    "inst": "SH600643",
+    "shares": 300
+   },
+   {
+    "inst": "SH603194",
+    "shares": 0
+   },
+   {
+    "inst": "SH688798",
+    "shares": 0
+   },
+   {
+    "inst": "SZ000600",
+    "shares": 100
+   },
+   {
+    "inst": "SZ002838",
+    "shares": 0
+   },
+   {
+    "inst": "SZ002668",
+    "shares": 100
+   },
+   {
+    "inst": "SZ301005",
+    "shares": 0
+   },
+   {
+    "inst": "SH600123",
+    "shares": 100
+   },
+   {
+    "inst": "SH601083",
+    "shares": 100
+   },
+   {
+    "inst": "SZ301381",
+    "shares": 0
+   },
+   {
+    "inst": "SZ002911",
+    "shares": 100
+   },
+   {
+    "inst": "SH688232",
+    "shares": 0
+   },
+   {
+    "inst": "SH688139",
+    "shares": 0
+   }
+  ]
+ },
+ "transfer_in": 0.0,
+ "bench_cum": 1.0,
+ "unit": 1.0
+}

@@ -1,0 +1,61 @@
+name: 组合模拟盘每日运行
+
+on:
+  schedule:
+    # GitHub 的 cron 用 UTC：09:00 UTC = 北京时间 17:00（周一到周五）
+    - cron: "0 9 * * 1-5"
+    # 补跑：数据源（chenditc/investment_data）有时晚于 17:00 才发布当天数据。
+    # 这两次只在还有未处理的交易日时才会真正运行，否则几十秒就结束。不需要可以删掉。
+    - cron: "0 13 * * 1-5"   # 北京时间 21:00
+    - cron: "30 0 * * 2-6"   # 北京时间次日 08:30（开盘前）
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "强制重跑（即使账户已是最新）"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: paper-combo
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      TZ: Asia/Shanghai
+      RA_PROVIDER: ${{ github.workspace }}/../qlib_data/cn_data
+      RA_DATA: ${{ github.workspace }}/../ra_data
+      FORCE: ${{ inputs.force && '1' || '0' }}
+      # 初始资金和机会仓比例：只在新建账户时生效（要改就先删掉 paper/accounts 再手动运行一次）
+      PAPER_CASH: "100000"
+      PAPER_FB_RATIO: "0.30"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: paper/requirements.txt
+
+      - name: 安装依赖
+        run: pip install -r paper/requirements.txt
+
+      - name: 运行模拟盘
+        run: bash paper/run_daily.sh
+
+      - name: 提交结果
+        if: env.NOTHING_TO_DO != '1'
+        run: |
+          git config user.name "paper-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add paper/accounts paper/signals paper/README.md paper/data/extra/industry.parquet paper/data/extra/em_holders.parquet
+          if git diff --cached --quiet; then echo "没有变化"; exit 0; fi
+          DAY=$(tail -1 "$RA_PROVIDER/calendars/day.txt")
+          git commit -q -m "组合模拟盘 $DAY"
+          for i in 1 2 3; do git pull -q --rebase && git push -q && break; sleep 5; done

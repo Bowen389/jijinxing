@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+*.log
+paper/.tmp/
+strategies/signals/
+strategies2/signals/
