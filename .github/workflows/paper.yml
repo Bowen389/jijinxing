@@ -1,4 +1,4 @@
-name: 组合模拟盘每日运行
+name: 进攻版模拟盘每日运行
 
 on:
   schedule:
@@ -19,7 +19,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: paper-combo
+  group: paper-senti
   cancel-in-progress: false
 
 jobs:
@@ -31,9 +31,8 @@ jobs:
       RA_PROVIDER: ${{ github.workspace }}/../qlib_data/cn_data
       RA_DATA: ${{ github.workspace }}/../ra_data
       FORCE: ${{ inputs.force && '1' || '0' }}
-      # 初始资金和机会仓比例：只在新建账户时生效（要改就先删掉 paper/accounts 再手动运行一次）
+      # 初始资金：只在新建账户时生效（要改就先删掉 paper/accounts 再手动运行一次）
       PAPER_CASH: "100000"
-      PAPER_FB_RATIO: "0.30"
     steps:
       - uses: actions/checkout@v4
 
@@ -57,5 +56,5 @@ jobs:
           git add paper/accounts paper/signals paper/README.md paper/data/extra/industry.parquet paper/data/extra/em_holders.parquet
           if git diff --cached --quiet; then echo "没有变化"; exit 0; fi
           DAY=$(tail -1 "$RA_PROVIDER/calendars/day.txt")
-          git commit -q -m "组合模拟盘 $DAY"
+          git commit -q -m "进攻版模拟盘 $DAY"
           for i in 1 2 3; do git pull -q --rebase && git push -q && break; sleep 5; done

@@ -3,6 +3,8 @@
   "retail",
   "behavior"
  ],
+ "horizon": 5,
+ "seed": 2,
  "features": [
   "REV5",
   "REV20",
@@ -33,7 +35,7 @@
   "DNLIM20",
   "MIN20"
  ],
- "best_iter": 99,
+ "best_iter": 28,
  "train": [
   "2015-01-01",
   "2024-08-29"
@@ -43,15 +45,14 @@
   "2026-09-13"
  ],
  "data_last_day": "2026-09-28",
- "seed": 0,
  "top_features": [
+  "SMALL20",
   "MAX20",
+  "CGO60",
   "REV5",
-  "CLOSEVWAP",
-  "UPVOL20",
-  "AMIHUD20",
-  "LOW250",
   "ABVOL5",
-  "UPDAYS10"
+  "UPDAYS10",
+  "INTRA20",
+  "AMIHUD20"
  ]
 }

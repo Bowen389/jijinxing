@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# 组合模拟盘每日流程（GitHub Actions 调用，本地也可以直接跑）：
-#   更新数据 → 重建面板/因子 → 股东户数增量 → 市场跌停占比 → 两仓成交 + 再平衡 + 出清单 → 生成 paper/README.md
+# 进攻版模拟盘每日流程（GitHub Actions 调用，本地也可以直接跑）：
+#   更新数据 → 重建面板/因子 → 股东户数增量 → 情绪指标 + 短线特征 → 开盘成交 + 盯市 + 出清单 → 生成 paper/README.md
 # 数据目录用环境变量覆盖；行业和股东户数放在仓库里的 paper/data/extra（每天增量更新并提交，避免每次全量抓取 15 分钟）
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -26,7 +26,7 @@ if [ "${FORCE:-0}" != "1" ] && [ -d paper/accounts ]; then
   NEED=$($PY - "$LAST_DAY" <<'EOF'
 import json, os, sys
 last = sys.argv[1]
-names = ["C_top50", "FB_dip"]
+names = ["S_top3"]
 need = 0
 for n in names:
     f = f"paper/accounts/{n}/state.json"
@@ -45,7 +45,7 @@ if ! timeout 300 $PY data_fetch/fetch_industry.py; then
 fi
 echo "::endgroup::"
 
-echo "::group::3) 面板 + 散户因子 + 长期犯错因子（C_top50 的三个模型要用）"
+echo "::group::3) 面板 + 散户因子 + 长期犯错因子"
 $PY -m engine.panel
 $PY -m engine.features --set retail
 $PY -m engine.features --set behavior
@@ -61,11 +61,11 @@ fi
 $PY -m engine.em_features
 echo "::endgroup::"
 
-echo "::group::5) 全市场跌停占比（FB_dip 的市场条件）"
-$PY paper/market.py
+echo "::group::5) 市场情绪指标 + 个股短线特征（大涨/大跌模型用）"
+$PY senti/features.py
 echo "::endgroup::"
 
-echo "::group::6) 组合模拟盘：成交 → 盯市 → 再平衡 → 生成下一交易日清单"
+echo "::group::6) 模拟盘：开盘成交 → 盯市 → 生成下一交易日清单"
 $PY paper/sim.py run
 echo "::endgroup::"
 rm -rf paper/.tmp

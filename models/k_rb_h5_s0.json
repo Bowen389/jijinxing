@@ -1,0 +1,58 @@
+{
+ "sets": [
+  "retail",
+  "behavior"
+ ],
+ "horizon": 5,
+ "seed": 0,
+ "features": [
+  "REV5",
+  "REV20",
+  "INTRA20",
+  "OVN20",
+  "MAX20",
+  "SKEW20",
+  "BIGUP20",
+  "VOL20",
+  "ABVOL5",
+  "VOLVOL20",
+  "PVCORR20",
+  "USHADOW20",
+  "AMIHUD20",
+  "SMALL20",
+  "LOWPRICE",
+  "CLOSEVWAP",
+  "CGO60",
+  "CGO250",
+  "HIGH250",
+  "LOW250",
+  "REV120",
+  "UPDAYS10",
+  "ATTN60",
+  "ABVOL250",
+  "EXTREME60",
+  "UPVOL20",
+  "DNLIM20",
+  "MIN20"
+ ],
+ "best_iter": 34,
+ "train": [
+  "2015-01-01",
+  "2024-08-29"
+ ],
+ "valid": [
+  "2024-09-13",
+  "2026-09-13"
+ ],
+ "data_last_day": "2026-09-28",
+ "top_features": [
+  "SMALL20",
+  "CGO60",
+  "REV5",
+  "MAX20",
+  "ABVOL5",
+  "INTRA20",
+  "AMIHUD20",
+  "UPVOL20"
+ ]
+}

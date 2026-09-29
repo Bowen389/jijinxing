@@ -4,7 +4,7 @@
   "behavior",
   "em"
  ],
- "horizon": 1,
+ "horizon": 5,
  "seed": 0,
  "features": [
   "REV5",
@@ -42,7 +42,7 @@
   "HN_AGE",
   "HN_FRESH"
  ],
- "best_iter": 102,
+ "best_iter": 32,
  "train": [
   "2015-01-01",
   "2024-08-29"
@@ -53,13 +53,13 @@
  ],
  "data_last_day": "2026-09-28",
  "top_features": [
+  "SMALL20",
   "MAX20",
+  "CGO60",
   "REV5",
-  "CLOSEVWAP",
   "AMIHUD20",
-  "UPDAYS10",
   "ABVOL5",
-  "LOW250",
-  "SMALL20"
+  "UPDAYS10",
+  "INTRA20"
  ]
 }
