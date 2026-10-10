@@ -15,6 +15,8 @@ import pandas as pd
 
 from engine.common import DATA, START, END, POOL, BENCH, init_qlib, pool_spans, limit_pct
 
+from engine.security import status_for
+
 FIELDS = ["$open", "$high", "$low", "$close", "$volume", "$amount", "$change", "$factor"]
 NAMES = ["open", "high", "low", "close", "volume", "amount", "change", "factor"]
 
@@ -49,6 +51,10 @@ def build(chunk=250):
                 ok |= (d >= s0) & (d <= e0)
             inp[idx] = ok
         df["in_pool"] = inp
+        # Execution status is separate from legacy model features.
+        # Do not silently change the input distribution of saved models.
+        for c, values in status_for(df).items():
+            df[c] = values
         g = df.groupby("instrument", sort=False)
         df["susp"] = ~(df["volume"] > 0)
         df["ret"] = (df["close"] / g["close"].shift(1) - 1).astype("float32")

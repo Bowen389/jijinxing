@@ -13,9 +13,16 @@ mkdir -p "$RA_PROVIDER" "$RA_DATA" "$RA_EXTRA"
 
 echo "::group::1) 下载 Qlib 日线数据"
 if [ "${SKIP_DOWNLOAD:-0}" != "1" ]; then
-  curl -sSL --retry 5 --retry-delay 10 -o /tmp/qlib_bin.tar.gz \
+  curl -fsSL --retry 5 --retry-delay 10 -o /tmp/qlib_bin.tar.gz \
     https://github.com/chenditc/investment_data/releases/latest/download/qlib_bin.tar.gz
-  rm -rf "$RA_PROVIDER"/* && tar -xzf /tmp/qlib_bin.tar.gz -C "$RA_PROVIDER" --strip-components=1 && rm -f /tmp/qlib_bin.tar.gz
+  STAGING=$(mktemp -d)
+  tar -xzf /tmp/qlib_bin.tar.gz -C "$STAGING" --strip-components=1
+  test -s "$STAGING/calendars/day.txt"
+  test -s "$STAGING/instruments/csi1000.txt"
+  rm -rf "$RA_PROVIDER"/*
+  cp -a "$STAGING"/. "$RA_PROVIDER"/
+  rm -rf "$STAGING"
+  rm -f /tmp/qlib_bin.tar.gz
 fi
 LAST_DAY=$(tail -1 "$RA_PROVIDER/calendars/day.txt")
 echo "Qlib 数据最新交易日：$LAST_DAY"
@@ -42,6 +49,12 @@ echo "::group::2) 行业分类（baostock；失败则沿用仓库里的旧文件
 if ! timeout 300 $PY data_fetch/fetch_industry.py; then
   echo "⚠ 行业分类更新失败，沿用 $RA_EXTRA/industry.parquet"
   test -f "$RA_EXTRA/industry.parquet"
+fi
+echo "::endgroup::"
+
+echo "::group::证券状态（按日期缓存 ST/停牌/上市退市）"
+if ! timeout 1200 $PY data_fetch/fetch_status.py; then
+  echo "⚠ 证券状态采集失败，缺失日期禁止新买入，沿用可核验的旧缓存"
 fi
 echo "::endgroup::"
 

@@ -35,9 +35,8 @@ STRATS = {
                    desc="进攻版：排名平均（大涨概率 − 大跌概率，六个 5 日模型），持 3 只，跌出前 60 才卖，不择时，开盘成交"),
 }
 
-ETF_CODE = "512100"
-# 数据源的复权因子每天有约 0.01% 的计算噪声；变化超过 0.3% 才认为是除权除息（更小的分红忽略）
-ADJ_TOL = 0.003
+from engine.execution import Ledger, ETF_CODE, code_of, execute_conc, EXECUTION_VERSION
+from engine.market import Market
 
 
 # ============================================================================ 工具
@@ -51,78 +50,10 @@ def inst_of(code):
     return norm_code(c)
 
 
-def code_of(inst):
-    return inst[2:] + "." + inst[:2]
-
-
-def lot_of(inst):
-    return 200 if inst.startswith("SH688") else 100
-
-
-def fee(amount, rate, min_cost=5.0, stamp=0.0):
-    if amount <= 0:
-        return 0.0
-    return max(amount * rate, min_cost) + amount * stamp
-
-
 def trading_days():
     from engine.common import PROVIDER
     cal = pd.read_csv(os.path.join(PROVIDER, "calendars", "day.txt"), header=None)[0]
     return [pd.Timestamp(x) for x in cal]
-
-
-class Market:
-    """某一日的行情（未复权价、复权因子、涨跌停/停牌），带缓存"""
-
-    COLS = ["datetime", "instrument", "raw_close", "raw_open", "factor", "up_lim", "dn_lim", "up_open", "dn_open", "susp"]
-
-    def __init__(self):
-        from engine.common import DATA
-        self.DATA = DATA
-        self.cache = {}
-        b = pd.read_parquet(os.path.join(DATA, "bench.parquet")).set_index("datetime")["bench"]
-        self.bench = b
-
-    def day(self, d):
-        d = pd.Timestamp(d)
-        if d not in self.cache:
-            from engine.common import read_parts
-            p = read_parts(os.path.join(self.DATA, "panel"), columns=self.COLS, start=d, end=d)
-            self.cache[d] = p.set_index("instrument")
-        return self.cache[d]
-
-    def quote(self, d, inst):
-        """返回 dict(close, open, factor, up_lim, dn_lim, up_open, dn_open, susp)；面板外的股票从 Qlib 全市场取"""
-        t = self.day(d)
-        if inst in t.index:
-            r = t.loc[inst]
-            q = {k: r[k] for k in self.COLS[2:]}
-        else:
-            q = self._qlib_quote(d, inst)
-        for k in ("raw_close", "raw_open", "factor"):
-            q[k] = float(q[k]) if q[k] is not None and not pd.isna(q[k]) else float("nan")
-        for k in ("up_lim", "dn_lim", "up_open", "dn_open", "susp"):
-            q[k] = bool(q[k]) if q[k] is not None and not pd.isna(q[k]) else (k == "susp")
-        for k in ("raw_close", "raw_open"):
-            if q[k] > 0:
-                q[k] = round(q[k], 2)       # 复权价反推的未复权价有微小误差，还原到分
-        if not q["raw_close"] > 0:
-            q["susp"] = True
-        return q
-
-    def _qlib_quote(self, d, inst):
-        from engine.common import init_qlib
-        from qlib.data import D
-        init_qlib()
-        try:
-            f = D.features([inst], ["$close/$factor", "$open/$factor", "$factor", "$volume", "$change"], d, d)
-            r = f.iloc[0].values
-            vol = r[3]
-            return dict(raw_close=r[0], raw_open=r[1], factor=r[2], up_lim=False, dn_lim=False, up_open=False,
-                        dn_open=False, susp=not (vol > 0))
-        except Exception:  # noqa: BLE001
-            return dict(raw_close=np.nan, raw_open=np.nan, factor=np.nan, up_lim=False, dn_lim=False, up_open=False,
-                        dn_open=False, susp=True)
 
 
 def names_table():
@@ -131,7 +62,7 @@ def names_table():
 
 
 # ============================================================================ 账户
-class Account:
+class Account(Ledger):
     def __init__(self, name):
         self.name = name
         self.dir = os.path.join(ACC_DIR, name)
@@ -149,64 +80,27 @@ class Account:
 
     def init(self, start):
         self.s = dict(strategy=self.name, init_cash=INIT_CASH, start_date=str(start.date()), last_date=None,
-                      cash=INIT_CASH, etf_value=0.0, positions={}, pending=None)
+                      cash=INIT_CASH, etf_value=0.0, positions={}, pending=None, execution_version=EXECUTION_VERSION, execution_start=str(start.date()))
 
-    # ----- 估值
-    def mark(self, mk, d):
-        """复权折算股数 + 按 d 日收盘估值"""
-        val = 0.0
-        for j, p in self.s["positions"].items():
-            q = mk.quote(d, j)
-            f0 = p.get("factor") or 0
-            if q["factor"] > 0 and f0 > 0 and abs(q["factor"] / f0 - 1) > ADJ_TOL:     # 除权除息：送转/分红折算成股数
-                p["shares"] = round(p["shares"] * q["factor"] / f0, 2)
-                p["factor"] = q["factor"]
-            elif q["factor"] > 0 and f0 <= 0:
-                p["factor"] = q["factor"]
-            if q["raw_close"] > 0:
-                p["last_px"] = q["raw_close"]
-            val += p["shares"] * p.get("last_px", 0.0)
-        return val
-
-    def total(self):
-        return self.s["cash"] + self.s["etf_value"] + sum(p["shares"] * p.get("last_px", 0.0)
-                                                          for p in self.s["positions"].values())
-
-    def stock_value(self):
-        return sum(p["shares"] * p.get("last_px", 0.0) for p in self.s["positions"].values())
-
-    # ----- 成交
-    def trade(self, d, action, inst, shares, px, f, note="", name=""):
-        amt = shares * px
-        if action == "买入":
-            self.s["cash"] -= amt + f
-            p = self.s["positions"].get(inst)
-            if p:
-                p["cost"] += amt + f
-                p["shares"] += shares
-            else:
-                self.s["positions"][inst] = dict(shares=float(shares), cost=amt + f, buy_date=str(d.date()),
-                                                 last_px=px, factor=None)
-        else:
-            self.s["cash"] += amt - f
-            p = self.s["positions"][inst]
-            if shares >= p["shares"] - 1e-6:
-                del self.s["positions"][inst]
-            else:
-                p["cost"] *= 1 - shares / p["shares"]
-                p["shares"] -= shares
-        self.trades.append(dict(日期=str(d.date()), 操作=action, 代码=code_of(inst) if inst != "ETF" else ETF_CODE,
-                                名称=name, 股数=int(shares) if float(shares).is_integer() else round(shares, 2), 成交价=round(px, 3), 金额=round(amt, 2),
-                                费用=round(f, 2), 备注=note))
+    @staticmethod
+    def write_csv(df, fn):
+        tmp = fn + ".tmp"
+        df.to_csv(tmp, index=False, encoding="utf-8-sig")
+        os.replace(tmp, fn)
 
     # ----- 保存
     def save(self, names):
         os.makedirs(self.dir, exist_ok=True)
-        json.dump(self.s, open(self.fn, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-        if self.trades:
+        processed = [r["日期"] for r in self.navs]
+        if self.trades or processed:
             fn = os.path.join(self.dir, "trades.csv")
-            df = pd.DataFrame(self.trades)
-            df.to_csv(fn, mode="a", header=not os.path.exists(fn), index=False, encoding="utf-8-sig")
+            df = pd.DataFrame(self.trades, columns=["日期", "操作", "代码", "名称", "股数", "成交价", "金额", "费用", "备注"])
+            replaced = set(processed) | set(df["日期"])
+            if os.path.exists(fn):
+                old = pd.read_csv(fn, encoding="utf-8-sig")
+                retained = old[~old["日期"].isin(replaced)]
+                df = retained if df.empty else df if retained.empty else pd.concat([retained, df], ignore_index=True)
+            self.write_csv(df, fn)
             self.trades = []
         if self.navs:
             fn = os.path.join(self.dir, "nav.csv")
@@ -214,7 +108,7 @@ class Account:
             if os.path.exists(fn):
                 old = pd.read_csv(fn, encoding="utf-8-sig")
                 df = pd.concat([old[~old["日期"].isin(df["日期"])], df], ignore_index=True)
-            df.to_csv(fn, index=False, encoding="utf-8-sig")
+            self.write_csv(df, fn)
             self.navs = []
         rows = []
         for j, p in sorted(self.s["positions"].items()):
@@ -225,59 +119,16 @@ class Account:
         if self.s["etf_value"] > 0:
             rows.append(dict(代码=ETF_CODE, 名称="中证1000ETF（指数近似）", 股数="", 现价="", 市值=round(self.s["etf_value"], 2),
                              成本="", 浮动盈亏="", 买入日期=""))
-        pd.DataFrame(rows, columns=["代码", "名称", "股数", "现价", "市值", "成本", "浮动盈亏", "买入日期"]).to_csv(
-            os.path.join(self.dir, "positions.csv"), index=False, encoding="utf-8-sig")
+        positions = pd.DataFrame(rows, columns=["代码", "名称", "股数", "现价", "市值", "成本", "浮动盈亏", "买入日期"])
+        self.write_csv(positions, os.path.join(self.dir, "positions.csv"))
         if self.s.get("last_date"):      # 每天的收盘持仓另存一份到当天的清单文件夹（日报用）
             dd = os.path.join(SIG_DIR, self.s["last_date"])
             os.makedirs(dd, exist_ok=True)
-            pd.DataFrame(rows, columns=["代码", "名称", "股数", "现价", "市值", "成本", "浮动盈亏", "买入日期"]).to_csv(
-                os.path.join(dd, f"{self.name}_positions.csv"), index=False, encoding="utf-8-sig")
-
-
-# ============================================================================ 成交逻辑
-def execute_conc(acc, mk, d, pend, names, cfg):
-    """K_top3：d 日开盘价成交，滑点 slip"""
-    oc, cc, mc, slip = cfg["open_cost"], cfg["close_cost"], cfg["min_cost"], cfg["slip"]
-    pos = acc.s["positions"]
-    for j in pend["sell"]:
-        if j not in pos:
-            continue
-        q = mk.quote(d, j)
-        if q["susp"] or q["dn_open"] or not q["raw_open"] > 0:
-            acc.trades.append(dict(日期=str(d.date()), 操作="卖出失败", 代码=code_of(j), 名称=names.get(j, ""), 股数=round(pos[j]["shares"], 2),
-                                   成交价="", 金额="", 费用="", 备注="开盘跌停/停牌，继续持有"))
-            continue
-        px = q["raw_open"] * (1 - slip)
-        sh = pos[j]["shares"]
-        acc.trade(d, "卖出", j, sh, px, fee(sh * px, cc, mc), pend.get("why", {}).get(j, "清单卖出"), names.get(j, ""))
-    slot = pend["slot"]
-    backups = list(pend["backup"])
-    done = set(pos)
-
-    def try_buy(j, note):
-        if j in done:
-            return False
-        q = mk.quote(d, j)
-        if q["susp"] or q["up_open"] or not q["raw_open"] > 0:
-            return False
-        px, lot = q["raw_open"] * (1 + slip), lot_of(j)
-        sh = math.floor(min(slot, acc.s["cash"]) / (1 + oc) / (px * lot)) * lot
-        while sh > 0 and sh * px + fee(sh * px, oc, mc) > acc.s["cash"]:
-            sh -= lot
-        if sh <= 0:
-            return False
-        acc.trade(d, "买入", j, sh, px, fee(sh * px, oc, mc), note, names.get(j, ""))
-        pos[j]["factor"] = q["factor"]
-        done.add(j)
-        return True
-
-    for b in pend["buy"]:
-        if try_buy(b["inst"], "清单买入（开盘）"):
-            continue
-        while backups:
-            r = backups.pop(0)
-            if try_buy(r["inst"], f"替补（替 {code_of(b['inst'])}）"):
-                break
+            self.write_csv(positions, os.path.join(dd, f"{self.name}_positions.csv"))
+        tmp = self.fn + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(self.s, f, ensure_ascii=False, indent=1)
+        os.replace(tmp, self.fn)
 
 
 def holdings_file(acc, with_date=False):
@@ -328,10 +179,15 @@ def run_one(name, start=None, until=None):
     days = [d for d in days if d <= data_last]
     if until:
         days = [d for d in days if d <= pd.Timestamp(until)]
+    if not days:
+        raise ValueError("所选区间没有可处理的交易日")
     acc = Account(name)
     if not acc.exists:
         s = pd.Timestamp(start) if start else days[-1]
-        s = max(d for d in days if d <= s)
+        candidates = [d for d in days if d <= s]
+        if not candidates:
+            raise ValueError("起始日早于可用行情")
+        s = max(candidates)
         acc.init(s)
         acc.navs.append(dict(日期=str(s.date()), 现金=round(acc.s["cash"], 2), 股票市值=0.0,
                              总资产=round(INIT_CASH, 2), 当日收益=0.0, 累计收益=0.0, 中证1000当日=0.0,
@@ -350,12 +206,21 @@ def run_one(name, start=None, until=None):
         print(f"[{name}] 已是最新（{acc.s['last_date']}），数据最新交易日 {data_last.date()}", flush=True)
         return
     cfg = strat_cfg(name)
+    # Keep old cash/positions/nav intact; start corrected execution prospectively.
+    if acc.s.get("execution_version") != EXECUTION_VERSION:
+        acc.s["execution_version"] = EXECUTION_VERSION
+        acc.s["execution_start"] = str(todo[0].date())
     for d in todo:
+        day = mk.day(d)
+        pool = day[day["in_pool"].fillna(False)]
+        acc.s["data_quality"] = dict(date=str(d.date()), pool_count=len(pool),
+                                    unknown_status=int((~pool["status_known"]).sum()),
+                                    eligible_buys=int(pool["buy_ok"].sum()))
         prev_total = acc.total()
         n0 = len(acc.trades)
         pend = acc.s.get("pending")
-        # 开盘成交前先做除权折算
-        acc.mark(mk, d)
+        # 开盘成交前按开盘价格估值并做除权折算
+        acc.mark(mk, d, at="open")
         if pend:
             execute_conc(acc, mk, d, pend, names, cfg)
         acc.mark(mk, d)
@@ -379,6 +244,8 @@ def run_one(name, start=None, until=None):
 
 def summary():
     name = "S_top3"
+    if not days:
+        raise ValueError("所选区间没有可处理的交易日")
     acc = Account(name)
     if not acc.exists:
         return
@@ -414,10 +281,14 @@ def summary():
             o = o[cols].fillna("")
             ord_md = ["| " + " | ".join(cols) + " |", "|" + "---|" * len(cols)] + \
                      ["| " + " | ".join(str(x) for x in r) + " |" for r in o.itertuples(index=False)]
+    execution_note = (f"执行 v{acc.s.get('execution_version', 1)}，修复口径从 {acc.s.get('execution_start', '尚未迁移')} 起生效；"
+                      "此前净值保留原记录。开盘成交是日线价格近似，不保证竞价排队成交。")
+    quality = acc.s.get("data_quality", {})
+    quality_note = f"最近处理日证券状态：{quality}" if quality else "证券状态尚未按修复版检查；下次处理新交易日时更新。"
     md = ["# 进攻版 S_top3 模拟盘（10 万元）", "",
           "打分 = 排名平均（大涨概率 − 大跌概率，K_top3 的六个 5 日模型）；中证1000 内持 3 只，排名跌出前 60 才卖，不择时，"
           "T 日收盘后出清单、T+1 开盘成交。GitHub Actions 每个交易日北京时间 17:00 自动运行，数据晚发布时之后的运行会自动补齐。", "",
-          "## 账户", "",
+          execution_note, "", quality_note, "", "## 账户", "",
           "| 起始日 | 最新日 | 总资产 | 当日 | 累计 | 中证1000累计 | 超额 | 最大回撤 | 持仓 | 现金 |",
           "|---|---|---|---|---|---|---|---|---|---|", row, "",
           "## 当前持仓", "", *pos_md, "",

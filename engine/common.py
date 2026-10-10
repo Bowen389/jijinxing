@@ -49,7 +49,8 @@ def limit_pct(inst: pd.Series, dt: pd.Series, is_st=None) -> np.ndarray:
     lim[bj] = 0.30
     if is_st is not None:
         st = np.asarray(is_st).astype(bool)
-        lim[st & ~star & ~gem & ~bj] = 0.05
+        twenty = star | (gem & (dt.values >= np.datetime64("2020-08-24")))
+        lim[st & ~twenty & ~bj] = 0.05
     return lim
 
 

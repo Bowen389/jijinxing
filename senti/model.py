@@ -37,6 +37,8 @@ def load_xy(start, end, sample=1, need_y=True, ycol="y3"):
     """与 experiments/senti.py load_xy 相同：散户+行为因子矩阵 + 个股短线特征 + 市场情绪，按索引对齐写入预分配矩阵"""
     from engine import model as EM
     keys, X, names, _ = EM.load(["retail", "behavior"], start, end, 1, sample=sample, with_label=False)
+    if keys is None or X is None or len(keys) == 0:
+        raise ValueError(f"{start}..{end} has no model feature rows")
     dt = keys["datetime"].values
     ins = pd.Categorical(keys["instrument"].values)
     del keys
@@ -51,11 +53,17 @@ def load_xy(start, end, sample=1, need_y=True, ycol="y3"):
     sidx = pd.MultiIndex.from_arrays([S["datetime"].values, pd.Categorical(S["instrument"].values, categories=ins.categories)])
     pos = sidx.get_indexer(pd.MultiIndex.from_arrays([dt, ins]))
     del sidx
+    if S.empty:
+        raise ValueError("No aligned stock sentiment features; rebuild senti/features.py")
     y = np.where(pos >= 0, S[ycol].values[np.maximum(pos, 0)], np.nan).astype("float32")
     keep = ~np.isnan(y) if need_y else np.ones(len(y), dtype=bool)
     M = pd.read_parquet(os.path.join(DATA, "senti_market.parquet")).set_index("datetime")
+    if M.empty:
+        raise ValueError("No market sentiment features")
     mcols = list(M.columns)
     mpos = M.index.get_indexer(dt)
+    if not need_y and ((pos < 0).any() or (mpos < 0).any()):
+        raise ValueError("Incomplete sentiment feature coverage; prediction aborted")
     n = int(keep.sum())
     out = np.empty((n, X.shape[1] + len(STOCK_F) + len(mcols)), dtype="float32")
     out[:, :X.shape[1]] = X[keep]
