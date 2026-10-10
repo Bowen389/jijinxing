@@ -1,0 +1,19 @@
+name: execution-regression
+on:
+  push:
+    branches: [main, 'fix/**']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy pandas pyarrow pytest
+      - run: python -m pytest -q
+      - run: python -m compileall -q engine senti paper data_fetch strategies strategies2
+      - run: bash -n paper/run_daily.sh

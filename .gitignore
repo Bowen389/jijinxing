@@ -5,3 +5,5 @@ __pycache__/
 paper/.tmp/
 strategies/signals/
 strategies2/signals/
+
+senti/signals/

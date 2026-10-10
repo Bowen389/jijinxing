@@ -54,7 +54,15 @@ jobs:
           git config user.name "paper-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add paper/accounts paper/signals paper/README.md paper/data/extra/industry.parquet paper/data/extra/em_holders.parquet
+          for FILE in security_basic.parquet security_status.parquet; do
+            if [ -f "paper/data/extra/$FILE" ]; then git add "paper/data/extra/$FILE"; fi
+          done
           if git diff --cached --quiet; then echo "没有变化"; exit 0; fi
           DAY=$(tail -1 "$RA_PROVIDER/calendars/day.txt")
           git commit -q -m "进攻版模拟盘 $DAY"
-          for i in 1 2 3; do git pull -q --rebase && git push -q && break; sleep 5; done
+          for i in 1 2 3; do
+            if git pull -q --rebase && git push -q; then exit 0; fi
+            sleep 5
+          done
+          echo "模拟盘结果提交失败" >&2
+          exit 1

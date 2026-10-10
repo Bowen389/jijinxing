@@ -20,6 +20,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 os.chdir(ROOT)
 from engine.common import DATA, EXTRA, KEY, read_parts  # noqa: E402
+from engine.execution import affordable  # noqa: E402
 
 CFG = dict(k=3, keep_rank=60, open_cost=0.0005, close_cost=0.0010, min_cost=5.0, slip=0.001, account=100_000,
            h5_models=["k_rb_s0", "k_rb_s1", "k_rb_s2", "k_rbh_s0", "k_rbh_s1", "k_rbh_s2"])
@@ -39,14 +40,14 @@ def scores(start, end):
 
 
 def cmd_signal(a):
-    from strategies.live import last_trading_day, lot_of, norm_code
+    from strategies.live import last_trading_day, norm_code
     T = pd.Timestamp(a.date) if a.date else last_trading_day()
     k, keep = CFG["k"], CFG["keep_rank"]
     blend, sk, h5 = scores(T - pd.Timedelta(days=10), T)
     if not len(blend) or blend["datetime"].max() < T:
         sys.exit(f"{T.date()} 没有因子数据，请先更新数据（bash paper/run_daily.sh 的 1–5 步）")
     px = read_parts(os.path.join(DATA, "panel"), columns=["datetime", "instrument", "raw_close", "up_lim", "dn_lim", "susp",
-                                                          "in_pool"], start=T, end=T).set_index("instrument")
+                                                          "in_pool", "buy_ok", "status_known", "is_st", "is_delisted"], start=T, end=T).set_index("instrument")
     names = pd.read_parquet(os.path.join(EXTRA, "industry.parquet")).set_index("instrument")
     if a.holdings:
         h = pd.read_csv(a.holdings, dtype={"code": str})
@@ -56,37 +57,40 @@ def cmd_signal(a):
         hold = pd.Series(dtype=float)
     hold = hold[hold > 0]
     miss = [j for j in hold.index if j not in px.index]
-    if miss:   # 已不在面板（调出中证1000 很久）：从 Qlib 全市场数据取收盘价
-        from engine.common import init_qlib
-        from qlib.data import D
-        init_qlib()
-        q = D.features(miss, ["$close/$factor"], T, T).reset_index().set_index("instrument").iloc[:, -1]
+    if miss:
+        from engine.market import Market
+        mk = Market()
         for j in miss:
-            px.loc[j, "raw_close"] = float(q.get(j, np.nan))
-            px.loc[j, ["up_lim", "dn_lim", "susp"]] = False
+            q = mk.quote(T, j)
+            for c in ("raw_close", "up_lim", "dn_lim", "susp", "buy_ok"):
+                px.loc[j, c] = q[c]
+            px.loc[j, "in_pool"] = False
     cash = a.cash if a.cash is not None else (CFG["account"] if not len(hold) else 0.0)
     val = pd.Series({j: hold[j] * float(np.nan_to_num(px["raw_close"].get(j, np.nan))) for j in hold.index}, dtype=float)
     total = float(val.sum()) + cash
 
     day = blend[blend["datetime"] == T].set_index("instrument")["score"].sort_values(ascending=False, kind="stable")
+    # Known prohibited names leave the ranking; missing status is excluded
+    # from new candidates without forcing liquidation of all old holdings.
+    prohibited = px["is_st"].fillna(False) | px["is_delisted"].fillna(False) | px.index.to_series().str.startswith("BJ")
+    day = day[~day.index.isin(px.index[prohibited])].dropna()
     rank = pd.Series(np.arange(1, len(day) + 1), index=day.index)
     skd = sk[sk["datetime"] == T].set_index("instrument")
     h5r = h5[h5["datetime"] == T].set_index("instrument")["score"].rank(ascending=False)
     sell, keep_list = [], []
     for j in hold.index:
         r = rank.get(j, 10 ** 6)
-        why = "不在中证1000" if j not in rank.index else f"排名 {r} 跌出前 {keep}" if r > keep else ""
+        why = "ST/退市/北交所：退出" if bool(prohibited.get(j, False)) else "不在中证1000或缺少有效评分" if j not in rank.index else f"排名 {r} 跌出前 {keep}" if r > keep else ""
         (sell if why else keep_list).append((j, why))
     n_free = max(k - len(keep_list), 0)
-    cands = [j for j in day.index if j not in hold.index and not bool(px["susp"].get(j, False))]
+    cands = [j for j in day.index if j not in hold.index and bool(px["buy_ok"].get(j, False)) and not bool(px["susp"].get(j, True))]
     buy, backup = cands[:n_free], cands[n_free:n_free + 5]
     slot = total / k
 
     def row(action, j, shares=None, note=""):
         p = float(px["raw_close"].get(j, np.nan))
         if shares is None:
-            lot = lot_of(j)
-            shares = int(np.floor(slot / (1 + CFG["open_cost"] + CFG["slip"]) / (p * lot)) * lot) if p > 0 else 0
+            shares = affordable(j, slot, p * (1 + CFG["slip"]), CFG["open_cost"], CFG["min_cost"])
             if shares == 0:
                 note = "资金不足一手，用替补"
         return dict(操作=action, 代码=j[2:] + "." + j[:2], 名称=names["code_name"].get(j, ""), 行业=names["industry"].get(j, ""),
@@ -106,6 +110,7 @@ def cmd_signal(a):
     pd.set_option("display.unicode.east_asian_width", True)
     print(f"\n==== 进攻版 S_top3｜信号日 {T.date()}｜在下一交易日【开盘集合竞价】成交 ====")
     print("打分：排名平均（大涨概率 − 大跌概率，六个 5 日模型）；持 3 只，跌出前 60 才卖，不择时")
+    print(f"证券状态未知 {int((~px['status_known'].fillna(False)).sum())} 只（禁止新买入）；合格新买候选 {len(cands)} 只")
     print(f"候选池：当日中证1000 成分 {len(day)} 只；全市场平均 大涨概率 {skd['up'].mean():.3f} / 大跌概率 {skd['dn'].mean():.3f}")
     print(f"账户：股票 {val.sum():,.0f} + 现金 {cash:,.0f} = {total:,.0f}；持仓 {len(hold)} 只 / 最多 {k} 只；每只目标约 {slot:,.0f}\n")
     main = out[out["操作"] != "替补"]
@@ -113,7 +118,7 @@ def cmd_signal(a):
     if len(buy):
         print("\n替补（买入目标开盘一字涨停/停牌买不进时按顺序替换）：",
               "、".join(f"{r.代码} {r.名称}" for r in out[out["操作"] == "替补"].itertuples()))
-        print("下单建议：开盘集合竞价（9:15-9:25）挂买入；股数按今日收盘价估算，开盘价偏离较大时按 目标金额÷开盘价 调整")
+        print("清单股数按收盘价估算；执行时按可用资金和实际空位重算。开盘价仅作成交近似；开盘已知后替补不能保证仍以竞价价成交。")
     print(f"\n已保存 {fn}")
     return fn
 

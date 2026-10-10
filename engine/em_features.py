@@ -29,22 +29,31 @@ def _roll(g, s, fn, w, minp=None):
 
 def holders_table():
     h = pd.read_parquet(os.path.join(EXTRA, "em_holders.parquet"))
-    h = h.dropna(subset=["holders", "notice"]).sort_values(["code", "end"]).drop_duplicates(["code", "end"], keep="last")
-    g = h.groupby("code")
-    h["h1"] = g["holders"].shift(1)
-    h["h2"] = g["holders"].shift(2)
-    h["a1"] = g["avg_hold"].shift(1)
-    h["HN_CHG1"] = np.log(h["holders"] / h["h1"])
-    h["HN_CHG2"] = np.log(h["holders"] / h["h2"])
-    h["HN_CHG_ADJ"] = np.log(h["avg_hold"] / h["a1"])
-    # 可用日 = 公告日 + 1 天；同一天可用多条时取截止日最新的
+    h = h.dropna(subset=["holders", "notice", "end"]).copy()
+    h["notice"] = pd.to_datetime(h["notice"])
+    h["end"] = pd.to_datetime(h["end"])
+    # Compute each snapshot only from reports already disclosed. Sorting by
+    # period first would leak a late-disclosed prior period into an earlier day.
     h["avail"] = h["notice"] + pd.Timedelta(days=1)
-    h = h.sort_values(["code", "avail", "end"]).drop_duplicates(["code", "avail"], keep="last")
-    # 公告晚于后一期的旧记录（补发）不应覆盖新记录：可用日上保证截止日单调
-    h["end_max"] = h.groupby("code")["end"].cummax()
-    h = h[h["end"] >= h["end_max"]]
-    h["instrument"] = np.where(h["code"].str[0] == "6", "SH", np.where(h["code"].str[0].isin(["0", "3"]), "SZ", "BJ")) + h["code"]
-    return h[["instrument", "avail", "end", "holders", "shares", "HN_CHG1", "HN_CHG2", "HN_CHG_ADJ"]]
+    rows = []
+    for code, reports in h.groupby("code", sort=False):
+        known = {}
+        for avail, batch in reports.sort_values(["avail", "end"]).groupby("avail", sort=True):
+            for r in batch.to_dict("records"):
+                known[r["end"]] = r
+            visible = [known[k] for k in sorted(known, reverse=True)]
+            latest = visible[0]
+            prev = visible[1] if len(visible) > 1 else {}
+            prev2 = visible[2] if len(visible) > 2 else {}
+            def ratio_log(a, b):
+                return np.log(a / b) if pd.notna(a) and pd.notna(b) and a > 0 and b > 0 else np.nan
+            inst = ("SH" if str(code).startswith("6") else "SZ" if str(code).startswith(("0", "3")) else "BJ") + str(code)
+            rows.append(dict(instrument=inst, avail=avail, end=latest["end"], holders=latest["holders"],
+                             shares=latest["shares"],
+                             HN_CHG1=ratio_log(latest["holders"], prev.get("holders", np.nan)),
+                             HN_CHG2=ratio_log(latest["holders"], prev2.get("holders", np.nan)),
+                             HN_CHG_ADJ=ratio_log(latest["avg_hold"], prev.get("avg_hold", np.nan))))
+    return pd.DataFrame(rows, columns=["instrument", "avail", "end", "holders", "shares", "HN_CHG1", "HN_CHG2", "HN_CHG_ADJ"])
 
 
 def build(kind="em"):
